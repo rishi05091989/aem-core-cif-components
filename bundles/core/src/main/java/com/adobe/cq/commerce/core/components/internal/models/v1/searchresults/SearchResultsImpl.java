@@ -87,7 +87,7 @@ public class SearchResultsImpl implements SearchResults {
         LOGGER.debug("Detected search parameter {}", searchTerm);
 
         // Get MagentoGraphqlClient from the resource.
-        magentoGraphqlClient = MagentoGraphqlClient.create(resource);
+        magentoGraphqlClient = MagentoGraphqlClient.create(resource, currentPage);
         productPage = SiteNavigation.getProductPage(currentPage);
         if (productPage == null) {
             productPage = currentPage;

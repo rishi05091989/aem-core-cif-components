@@ -81,6 +81,7 @@ public class ProductListImplTest {
     private static final String PRODUCTLIST = "/content/pageA/jcr:content/root/responsivegrid/productlist";
 
     private Resource productListResource;
+    private Resource pageResource;
     private ProductListImpl productListModel;
     private CategoryInterface category;
 
@@ -95,6 +96,11 @@ public class ProductListImplTest {
 
         GraphqlClient graphqlClient = Utils.setupGraphqlClientWithHttpResponseFrom("graphql/magento-graphql-category-result.json");
         Mockito.when(productListResource.adaptTo(GraphqlClient.class)).thenReturn(graphqlClient);
+
+        page = Mockito.spy(page);
+        pageResource = Mockito.mock(Resource.class);
+        when(page.adaptTo(Resource.class)).thenReturn(pageResource);
+        when(pageResource.adaptTo(GraphqlClient.class)).thenReturn(graphqlClient);
 
         MockRequestPathInfo requestPathInfo = (MockRequestPathInfo) context.request().getRequestPathInfo();
         requestPathInfo.setSelectorString("6");
@@ -317,7 +323,8 @@ public class ProductListImplTest {
 
     @Test
     public void testProductListNoGraphqlClient() throws IOException {
-        Mockito.when(productListResource.adaptTo(GraphqlClient.class)).thenReturn(null);
+        when(productListResource.adaptTo(GraphqlClient.class)).thenReturn(null);
+        when(pageResource.adaptTo(GraphqlClient.class)).thenReturn(null);
         productListModel = context.request().adaptTo(ProductListImpl.class);
 
         Assert.assertTrue(productListModel.getTitle().isEmpty());

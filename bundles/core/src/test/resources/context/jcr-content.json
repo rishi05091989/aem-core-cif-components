@@ -195,5 +195,34 @@
     "jcr:content": {
       "jcr:language": "en_US"
     }
+  },
+  "launches": {
+    "jcr:primaryType": "sling:Folder",
+    "2020": {
+      "jcr:primaryType": "sling:Folder",
+      "04": {
+        "jcr:primaryType": "sling:Folder",
+        "23": {
+          "jcr:primaryType": "sling:Folder",
+          "my_launch": {
+            "jcr:primaryType": "cq:Page",
+            "jcr:content": {
+              "liveDate": "2020-07-01T15:00:00.000+02:00",
+              "sling:resourceType": "wcm/launches/components/launch",
+              "sourceRootResource": "/content/pageA"
+            },
+            "content": {
+              "jcr:primaryType": "cq:Page",
+              "pageA": {
+                "jcr:primaryType": "cq:Page",
+                "jcr:content": {
+                  "jcr:primaryType": "cq:PageContent"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
   }
 }

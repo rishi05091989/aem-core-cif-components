@@ -50,6 +50,8 @@ import com.day.cq.wcm.scripting.WCMBindingsConstants;
 import io.wcm.testing.mock.aem.junit.AemContext;
 import io.wcm.testing.mock.aem.junit.AemContextCallback;
 
+import static org.mockito.Mockito.when;
+
 public class ProductCarouselImplTest {
 
     @Rule
@@ -88,6 +90,11 @@ public class ProductCarouselImplTest {
 
         GraphqlClient graphqlClient = Utils.setupGraphqlClientWithHttpResponseFrom("graphql/magento-graphql-productcarousel-result.json");
         Mockito.when(carouselResource.adaptTo(GraphqlClient.class)).thenReturn(graphqlClient);
+
+        page = Mockito.spy(page);
+        Resource pageResource = Mockito.mock(Resource.class);
+        when(page.adaptTo(Resource.class)).thenReturn(pageResource);
+        when(pageResource.adaptTo(GraphqlClient.class)).thenReturn(graphqlClient);
 
         // This sets the page attribute injected in the models with @Inject or @ScriptVariable
         SlingBindings slingBindings = (SlingBindings) context.request().getAttribute(SlingBindings.class.getName());

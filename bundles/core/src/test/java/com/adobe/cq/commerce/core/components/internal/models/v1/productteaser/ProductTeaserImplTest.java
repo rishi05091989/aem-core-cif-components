@@ -44,6 +44,8 @@ import com.day.cq.wcm.scripting.WCMBindingsConstants;
 import io.wcm.testing.mock.aem.junit.AemContext;
 import io.wcm.testing.mock.aem.junit.AemContextCallback;
 
+import static org.mockito.Mockito.when;
+
 public class ProductTeaserImplTest {
 
     @Rule
@@ -71,6 +73,7 @@ public class ProductTeaserImplTest {
     private static final String PRODUCTTEASER_NOCLIENT = "/content/pageA/jcr:content/root/responsivegrid/productteaser-noclient";
 
     private Resource teaserResource;
+    private Resource pageResource;
 
     private ProductTeaserImpl productTeaser;
 
@@ -85,7 +88,12 @@ public class ProductTeaserImplTest {
         product = rootQuery.getProducts().getItems().get(0);
 
         GraphqlClient graphqlClient = Utils.setupGraphqlClientWithHttpResponseFrom("graphql/magento-graphql-productteaser-result.json");
-        Mockito.when(teaserResource.adaptTo(GraphqlClient.class)).thenReturn(graphqlClient);
+        when(teaserResource.adaptTo(GraphqlClient.class)).thenReturn(graphqlClient);
+
+        page = Mockito.spy(page);
+        pageResource = Mockito.mock(Resource.class);
+        when(page.adaptTo(Resource.class)).thenReturn(pageResource);
+        when(pageResource.adaptTo(GraphqlClient.class)).thenReturn(graphqlClient);
 
         // This sets the page attribute injected in the models with @Inject or @ScriptVariable
         SlingBindings slingBindings = (SlingBindings) context.request().getAttribute(SlingBindings.class.getName());
@@ -170,7 +178,7 @@ public class ProductTeaserImplTest {
         Page page = context.currentPage(PAGE);
         context.currentResource(PRODUCTTEASER_NOCLIENT);
         Resource teaserResource = Mockito.spy(context.resourceResolver().getResource(PRODUCTTEASER_NOCLIENT));
-        Mockito.when(teaserResource.adaptTo(GraphqlClient.class)).thenReturn(null);
+        when(teaserResource.adaptTo(GraphqlClient.class)).thenReturn(null);
 
         // This sets the page attribute injected in the models with @Inject or @ScriptVariable
         SlingBindings slingBindings = (SlingBindings) context.request().getAttribute(SlingBindings.class.getName());
@@ -191,7 +199,12 @@ public class ProductTeaserImplTest {
         Resource teaserResource = Mockito.spy(context.resourceResolver().getResource(PRODUCTTEASER_VIRTUAL));
 
         GraphqlClient graphqlClient = Utils.setupGraphqlClientWithHttpResponseFrom("graphql/magento-graphql-virtualproduct-result.json");
-        Mockito.when(teaserResource.adaptTo(GraphqlClient.class)).thenReturn(graphqlClient);
+        when(teaserResource.adaptTo(GraphqlClient.class)).thenReturn(graphqlClient);
+
+        page = Mockito.spy(page);
+        pageResource = Mockito.mock(Resource.class);
+        when(page.adaptTo(Resource.class)).thenReturn(pageResource);
+        when(pageResource.adaptTo(GraphqlClient.class)).thenReturn(graphqlClient);
 
         SlingBindings slingBindings = (SlingBindings) context.request().getAttribute(SlingBindings.class.getName());
         slingBindings.setResource(teaserResource);

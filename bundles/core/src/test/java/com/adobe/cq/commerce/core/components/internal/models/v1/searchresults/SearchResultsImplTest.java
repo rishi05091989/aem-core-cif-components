@@ -38,6 +38,8 @@ import com.day.cq.wcm.scripting.WCMBindingsConstants;
 import io.wcm.testing.mock.aem.junit.AemContext;
 import io.wcm.testing.mock.aem.junit.AemContextCallback;
 
+import static org.mockito.Mockito.when;
+
 /**
  * JUnit test suite for {@link SearchResultsImpl}
  */
@@ -67,6 +69,7 @@ public class SearchResultsImplTest {
 
     private SearchResultsImpl searchResultsModel;
     private Resource searchResultsResource;
+    private Resource pageResource;
 
     @Before
     public void setUp() throws IOException {
@@ -74,14 +77,19 @@ public class SearchResultsImplTest {
         context.currentResource(SEARCHRESULTS);
         searchResultsResource = Mockito.spy(context.resourceResolver().getResource(SEARCHRESULTS));
 
+        // Search results
+        GraphqlClient graphqlClient = Utils.setupGraphqlClientWithHttpResponseFrom("graphql/magento-graphql-search-result.json");
+        when(searchResultsResource.adaptTo(GraphqlClient.class)).thenReturn(graphqlClient);
+
+        page = Mockito.spy(page);
+        pageResource = Mockito.mock(Resource.class);
+        when(page.adaptTo(Resource.class)).thenReturn(pageResource);
+        when(pageResource.adaptTo(GraphqlClient.class)).thenReturn(graphqlClient);
+
         // This sets the page attribute injected in the models with @Inject or @ScriptVariable
         SlingBindings slingBindings = (SlingBindings) context.request().getAttribute(SlingBindings.class.getName());
         slingBindings.setResource(searchResultsResource);
         slingBindings.put(WCMBindingsConstants.NAME_CURRENT_PAGE, page);
-
-        // Search results
-        GraphqlClient graphqlClient = Utils.setupGraphqlClientWithHttpResponseFrom("graphql/magento-graphql-search-result.json");
-        Mockito.when(searchResultsResource.adaptTo(GraphqlClient.class)).thenReturn(graphqlClient);
     }
 
     @Test
@@ -112,7 +120,8 @@ public class SearchResultsImplTest {
 
     @Test
     public void testNoMagentoGraphqlClient() {
-        Mockito.when(searchResultsResource.adaptTo(GraphqlClient.class)).thenReturn(null);
+        when(searchResultsResource.adaptTo(GraphqlClient.class)).thenReturn(null);
+        when(pageResource.adaptTo(GraphqlClient.class)).thenReturn(null);
         searchResultsModel = context.request().adaptTo(SearchResultsImpl.class);
 
         Collection<ProductListItem> products = searchResultsModel.getProducts();

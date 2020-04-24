@@ -15,7 +15,10 @@
 package com.adobe.cq.commerce.core.components.client;
 
 import java.io.IOException;
-import java.util.Collections;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Dictionary;
 import java.util.Hashtable;
 import java.util.List;
@@ -23,7 +26,6 @@ import java.util.List;
 import org.apache.http.Header;
 import org.apache.http.message.BasicHeader;
 import org.apache.sling.api.resource.Resource;
-import org.apache.sling.caconfig.ConfigurationBuilder;
 import org.apache.sling.testing.mock.caconfig.ContextPlugins;
 import org.apache.sling.testing.mock.sling.ResourceResolverType;
 import org.junit.Assert;
@@ -34,21 +36,21 @@ import org.mockito.ArgumentMatcher;
 import org.mockito.Mockito;
 import org.osgi.service.cm.Configuration;
 import org.osgi.service.cm.ConfigurationAdmin;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.adobe.cq.commerce.graphql.client.GraphqlClient;
 import com.adobe.cq.commerce.graphql.client.HttpMethod;
 import com.adobe.cq.commerce.graphql.client.RequestOptions;
 import com.adobe.cq.commerce.magento.graphql.gson.QueryDeserializer;
+import com.adobe.cq.launches.api.Launch;
+import com.day.cq.commons.jcr.JcrConstants;
+import com.day.cq.wcm.api.Page;
+import com.google.common.base.Function;
 import io.wcm.testing.mock.aem.junit.AemContext;
 import io.wcm.testing.mock.aem.junit.AemContextBuilder;
 
 public class MagentoGraphqlClientTest {
-    private static final Logger LOG = LoggerFactory.getLogger(MagentoGraphqlClientTest.class);
-    private GraphqlClient graphqlClient;
 
-    private ConfigurationBuilder mockConfigurationBuilder;
+    private GraphqlClient graphqlClient;
 
     @Rule
     public final AemContext context = new AemContextBuilder(ResourceResolverType.JCR_MOCK).plugin(ContextPlugins.CACONFIG)
@@ -84,7 +86,6 @@ public class MagentoGraphqlClientTest {
         graphqlClient = Mockito.mock(GraphqlClient.class);
         Mockito.when(graphqlClient.execute(Mockito.any(), Mockito.any(), Mockito.any()))
             .thenReturn(null);
-
     }
 
     private void testMagentoStoreProperty(Resource resource, boolean withStoreHeader) {
@@ -92,14 +93,19 @@ public class MagentoGraphqlClientTest {
             .thenReturn(graphqlClient);
 
         MagentoGraphqlClient client = MagentoGraphqlClient.create(resource);
-        executeAndCheck(withStoreHeader, client);
-
+        executeAndCheck(withStoreHeader, client, null);
     }
 
-    private void executeAndCheck(boolean withStoreHeader, MagentoGraphqlClient client) {
+    private void executeAndCheck(boolean withStoreHeader, MagentoGraphqlClient client, String previewVersion) {
         // Verify parameters with default execute() method and store property
         client.execute("{dummy}");
-        List<Header> headers = withStoreHeader ? Collections.singletonList(new BasicHeader("Store", "my-store")) : Collections.emptyList();
+        List<Header> headers = new ArrayList<>();
+        if (withStoreHeader) {
+            headers.add(new BasicHeader("Store", "my-store"));
+        }
+        if (previewVersion != null) {
+            headers.add(new BasicHeader("Preview-Version", previewVersion));
+        }
         RequestOptionsMatcher matcher = new RequestOptionsMatcher(headers, null);
         Mockito.verify(graphqlClient)
             .execute(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.argThat(matcher));
@@ -126,7 +132,7 @@ public class MagentoGraphqlClientTest {
         Mockito.when(pageWithConfig.adaptTo(GraphqlClient.class))
             .thenReturn(graphqlClient);
         MagentoGraphqlClient client = MagentoGraphqlClient.create(pageWithConfig);
-        executeAndCheck(true, client);
+        executeAndCheck(true, client, null);
     }
 
     @Test
@@ -180,6 +186,35 @@ public class MagentoGraphqlClientTest {
 
         MagentoGraphqlClient client = MagentoGraphqlClient.create(resource);
         Assert.assertNull(client);
+    }
+
+    @Test
+    public void testWithLaunches() {
+
+        Function<Resource, GraphqlClient> adapter = r -> {
+            return r.getPath().equals("/content/pageA") ? graphqlClient : null;
+        };
+        context.registerAdapter(Resource.class, GraphqlClient.class, adapter);
+
+        Page launchPage = context.currentPage("/content/launches/2020/04/23/my_launch/content/pageA");
+        Resource launchResource = Mockito.spy(context.resourceResolver().getResource("/content/launches/2020/04/23/my_launch"));
+        Resource productionResource = context.resourceResolver().getResource("/content/pageA");
+
+        String liveDate = launchResource.getChild(JcrConstants.JCR_CONTENT).getValueMap().get("liveDate", String.class);
+        OffsetDateTime offsetDateTime = DateTimeFormatter.ISO_OFFSET_DATE_TIME.parse(liveDate, OffsetDateTime::from);
+        Long epoch = offsetDateTime.toEpochSecond();
+        Calendar cal = Calendar.getInstance();
+        cal.setTimeInMillis(epoch * 1000);
+
+        Launch launch = Mockito.mock(Launch.class);
+        context.registerAdapter(Resource.class, Launch.class, launch);
+        Mockito.when(launch.getLiveDate()).thenReturn(cal);
+        Mockito.when(launch.getResource()).thenReturn(launchResource);
+        Mockito.when(launch.getSourceRootResource()).thenReturn(productionResource);
+        Mockito.when(launchResource.adaptTo(Launch.class)).thenReturn(launch);
+
+        MagentoGraphqlClient client = MagentoGraphqlClient.create(launchPage.getContentResource(), launchPage);
+        executeAndCheck(false, client, String.valueOf(epoch));
     }
 
     /**

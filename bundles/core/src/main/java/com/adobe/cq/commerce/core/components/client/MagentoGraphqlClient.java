@@ -14,7 +14,11 @@
 
 package com.adobe.cq.commerce.core.components.client;
 
-import java.util.Collections;
+import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.List;
+import java.util.TimeZone;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.http.Header;
@@ -33,6 +37,8 @@ import com.adobe.cq.commerce.graphql.client.RequestOptions;
 import com.adobe.cq.commerce.magento.graphql.Query;
 import com.adobe.cq.commerce.magento.graphql.gson.Error;
 import com.adobe.cq.commerce.magento.graphql.gson.QueryDeserializer;
+import com.adobe.cq.launches.api.Launch;
+import com.adobe.cq.wcm.launches.utils.LaunchUtils;
 import com.day.cq.commons.inherit.ComponentInheritanceValueMap;
 import com.day.cq.commons.inherit.HierarchyNodeInheritanceValueMap;
 import com.day.cq.commons.inherit.InheritanceValueMap;
@@ -63,27 +69,54 @@ public class MagentoGraphqlClient {
      *
      * @param resource The JCR resource to use to adapt to the lower-level {@link GraphqlClient}.
      * @return A new MagentoGraphqlClient instance.
+     * @deprecated Use {@link MagentoGraphqlClient#create(Resource, Page)}
      */
+    @Deprecated
     public static MagentoGraphqlClient create(Resource resource) {
         try {
-            return new MagentoGraphqlClient(resource);
+            return new MagentoGraphqlClient(resource, null);
         } catch (Exception e) {
             LOGGER.error(e.getMessage());
             return null;
         }
     }
 
-    private MagentoGraphqlClient(Resource resource) {
-        graphqlClient = resource.adaptTo(GraphqlClient.class);
-        if (graphqlClient == null) {
-            throw new RuntimeException("GraphQL client not available for resource " + resource.getPath());
+    /**
+     * Instantiates and returns a new MagentoGraphqlClient.
+     * This method returns <code>null</code> if the client cannot be instantiated.
+     *
+     * @param resource The JCR resource of the component being rendered.
+     * @param page The current AEM page. This is used to adapt to the lower-level {@link GraphqlClient}.
+     *            This is required because it is not possible to get the current page for components added to the page template.
+     * @return A new MagentoGraphqlClient instance.
+     */
+    public static MagentoGraphqlClient create(Resource resource, Page page) {
+        try {
+            return new MagentoGraphqlClient(resource, page);
+        } catch (Exception e) {
+            LOGGER.error(e.getMessage());
+            return null;
+        }
+    }
+
+    private MagentoGraphqlClient(Resource resource, Page page) {
+        Resource pageResource = page != null ? page.adaptTo(Resource.class) : resource;
+
+        Launch launch = null;
+        if (page != null && LaunchUtils.isLaunchBasedPath(page.getPath())) {
+            Resource launchResource = LaunchUtils.getLaunchResource(pageResource);
+            launch = launchResource.adaptTo(Launch.class);
+            pageResource = LaunchUtils.getTargetResource(pageResource, null);
         }
 
-        requestOptions = new RequestOptions().withGson(QueryDeserializer.getGson());
+        graphqlClient = pageResource.adaptTo(GraphqlClient.class);
+        if (graphqlClient == null) {
+            throw new RuntimeException("GraphQL client not available for resource " + pageResource.getPath());
+        }
+
+        ConfigurationBuilder configBuilder = pageResource.adaptTo(ConfigurationBuilder.class);
 
         String storeCode;
-        ConfigurationBuilder configBuilder = resource.adaptTo(ConfigurationBuilder.class);
-
         if (configBuilder != null) {
             ValueMap properties = configBuilder.name(CONFIGURATION_NAME).asValueMap();
             storeCode = properties.get(STORE_CODE_PROPERTY, String.class);
@@ -93,9 +126,25 @@ public class MagentoGraphqlClient {
         } else {
             storeCode = readFallBackConfiguration(resource, STORE_CODE_PROPERTY);
         }
+
+        List<Header> headers = new ArrayList<>();
         if (StringUtils.isNotEmpty(storeCode)) {
-            Header storeHeader = new BasicHeader("Store", storeCode);
-            requestOptions.withHeaders(Collections.singletonList(storeHeader));
+            headers.add(new BasicHeader("Store", storeCode));
+        }
+
+        if (launch != null) {
+            Calendar liveDate = launch.getLiveDate();
+            if (liveDate != null) {
+                TimeZone timeZone = liveDate.getTimeZone();
+                OffsetDateTime offsetDateTime = OffsetDateTime.ofInstant(liveDate.toInstant(), timeZone.toZoneId());
+                long epoch = offsetDateTime.toEpochSecond();
+                headers.add(new BasicHeader("Preview-Version", String.valueOf(epoch)));
+            }
+        }
+
+        requestOptions = new RequestOptions().withGson(QueryDeserializer.getGson());
+        if (!headers.isEmpty()) {
+            requestOptions.withHeaders(headers);
         }
     }
 

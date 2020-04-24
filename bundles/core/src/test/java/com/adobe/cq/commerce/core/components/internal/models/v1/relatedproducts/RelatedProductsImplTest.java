@@ -53,6 +53,7 @@ import io.wcm.testing.mock.aem.junit.AemContextCallback;
 
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 public class RelatedProductsImplTest {
 
@@ -92,6 +93,7 @@ public class RelatedProductsImplTest {
     }
 
     private Resource relatedProductsResource;
+    private Resource pageResource;
     private RelatedProductsImpl relatedProducts;
     private List<ProductInterface> products;
 
@@ -114,6 +116,11 @@ public class RelatedProductsImplTest {
             graphqlClient = Utils.setupGraphqlClientWithHttpResponseFrom(jsonResponsePath);
         }
         Mockito.when(relatedProductsResource.adaptTo(GraphqlClient.class)).thenReturn(graphqlClient);
+
+        page = Mockito.spy(page);
+        pageResource = Mockito.mock(Resource.class);
+        when(page.adaptTo(Resource.class)).thenReturn(pageResource);
+        when(pageResource.adaptTo(GraphqlClient.class)).thenReturn(graphqlClient);
 
         // This sets the page attribute injected in the models with @Inject or @ScriptVariable
         SlingBindings slingBindings = (SlingBindings) context.request().getAttribute(SlingBindings.class.getName());

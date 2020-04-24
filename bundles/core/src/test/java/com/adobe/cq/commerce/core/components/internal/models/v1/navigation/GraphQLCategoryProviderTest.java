@@ -61,7 +61,7 @@ public class GraphQLCategoryProviderTest {
     @Test
     public void testMissingMagentoGraphqlClient() throws IOException {
         Page page = Mockito.spy(context.currentPage("/content/pageA"));
-        GraphQLCategoryProvider categoryProvider = new GraphQLCategoryProvider(page);
+        GraphQLCategoryProvider categoryProvider = new GraphQLCategoryProvider(page.getContentResource(), page);
         Assert.assertNull(Whitebox.getInternalState(categoryProvider, "magentoGraphqlClient"));
         Assert.assertTrue(categoryProvider.getChildCategories(10, 10).isEmpty());
     }
@@ -71,7 +71,7 @@ public class GraphQLCategoryProviderTest {
         Page page = mock(Page.class);
         Resource pageContent = mock(Resource.class);
         when(page.getContentResource()).thenReturn(pageContent);
-        GraphQLCategoryProvider categoryProvider = new GraphQLCategoryProvider(page);
+        GraphQLCategoryProvider categoryProvider = new GraphQLCategoryProvider(page.getContentResource(), page);
         MagentoGraphqlClient graphqlClient = mock(MagentoGraphqlClient.class);
         Whitebox.setInternalState(categoryProvider, "magentoGraphqlClient", graphqlClient);
 
@@ -94,13 +94,13 @@ public class GraphQLCategoryProviderTest {
     @Test
     public void testGetChildCategories() throws IOException {
         Page page = spy(context.currentPage("/content/pageA"));
-        Resource pageContent = spy(page.getContentResource());
-        when(page.getContentResource()).thenReturn(pageContent);
+        Resource pageResource = Mockito.mock(Resource.class);
+        when(page.adaptTo(Resource.class)).thenReturn(pageResource);
 
         GraphqlClient graphqlClient = Utils.setupGraphqlClientWithHttpResponseFrom("graphql/magento-graphql-navigation-result.json");
-        when(pageContent.adaptTo(GraphqlClient.class)).thenReturn(graphqlClient);
+        when(pageResource.adaptTo(GraphqlClient.class)).thenReturn(graphqlClient);
 
-        GraphQLCategoryProvider categoryProvider = new GraphQLCategoryProvider(page);
+        GraphQLCategoryProvider categoryProvider = new GraphQLCategoryProvider(page.getContentResource(), page);
 
         // Test null categoryId
         Assert.assertTrue(categoryProvider.getChildCategories(null, 5).isEmpty());

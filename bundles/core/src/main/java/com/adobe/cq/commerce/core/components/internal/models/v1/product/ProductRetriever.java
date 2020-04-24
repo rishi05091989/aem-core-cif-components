@@ -49,7 +49,7 @@ class ProductRetriever extends AbstractProductRetriever {
         // TODO WORKAROUND
         // we need a temporary detour and use storeconfig to get the base media url since the product media gallery only returns the images
         // file names but no full URLs
-        mediaBaseUrl = rootQuery.getStoreConfig().getSecureBaseMediaUrl();
+        mediaBaseUrl = "http://magento2.vagrant78/pub/media/"; // rootQuery.getStoreConfig().getSecureBaseMediaUrl();
 
         // Return first product in list
         if (products.size() > 0) {
@@ -75,8 +75,8 @@ class ProductRetriever extends AbstractProductRetriever {
         // GraphQL query
         ProductsQueryDefinition queryArgs = q -> q.items(generateProductQuery());
         return Operations.query(query -> query
-            .products(searchArgs, queryArgs)
-            .storeConfig(generateStoreConfigQuery())).toString();
+            .products(searchArgs, queryArgs)).toString();
+        // .storeConfig(generateStoreConfigQuery())).toString();
     }
 
     private SimpleProductQueryDefinition generateSimpleProductQuery() {

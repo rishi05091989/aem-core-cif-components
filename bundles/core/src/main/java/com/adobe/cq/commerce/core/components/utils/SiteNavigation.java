@@ -27,6 +27,7 @@ import org.slf4j.LoggerFactory;
 
 import com.adobe.cq.commerce.core.components.internal.services.UrlProviderImpl;
 import com.adobe.cq.commerce.core.components.services.UrlProvider;
+import com.adobe.cq.wcm.launches.utils.LaunchUtils;
 import com.day.cq.commons.inherit.HierarchyNodeInheritanceValueMap;
 import com.day.cq.commons.inherit.InheritanceValueMap;
 import com.day.cq.wcm.api.Page;
@@ -39,8 +40,6 @@ public class SiteNavigation {
     private static final String PN_CIF_CATEGORY_PAGE = "cq:cifCategoryPage";
     private static final String PN_CIF_PRODUCT_PAGE = "cq:cifProductPage";
     private static final String PN_CIF_SEARCH_RESULTS_PAGE = "cq:cifSearchResultsPage";
-    private static final String SELECTOR_FILTER_PROPERTY = "selectorFilter";
-
     private static final String COMBINED_SKU_SEPARATOR = "#";
 
     /**
@@ -105,12 +104,37 @@ public class SiteNavigation {
      */
     @Nullable
     public static Page getNavigationRootPage(Page page) {
+        page = toLaunchProductionPage(page);
+
         while (page != null) {
             if (page.getContentResource().getValueMap().get(PN_NAV_ROOT, false)) {
                 break;
             }
-
             page = page.getParent();
+        }
+        return page;
+    }
+
+    /**
+     * Checks if the given page is a Launch page, and if yes, returns the production version of the page.
+     * If the page is not a Launch page, this method returns the page itself. This allows writing code
+     * like<br>
+     * <br>
+     * <code>page = SiteNavigation.toLaunchProductionPage(page);</code>
+     * 
+     * @param page The page to be checked.
+     * @return The production version of the page if it is a Launch page, or the page itself.
+     */
+    public static Page toLaunchProductionPage(Page page) {
+        if (page == null || page.getPath() == null) {
+            return page;
+        }
+
+        PageManager pageManager = page.getPageManager();
+        if (pageManager != null && LaunchUtils.isLaunchBasedPath(page.getPath())) {
+            Resource targetResource = LaunchUtils.getTargetResource(page.adaptTo(Resource.class), null);
+            Page targetPage = pageManager.getPage(targetResource.getPath());
+            page = targetPage != null ? targetPage : page;
         }
         return page;
     }
@@ -125,6 +149,9 @@ public class SiteNavigation {
      */
     @Nullable
     private static Page getGenericPage(String pageTypeProperty, Page page) {
+        PageManager pageManager = page.getPageManager();
+        page = toLaunchProductionPage(page);
+
         final InheritanceValueMap properties = new HierarchyNodeInheritanceValueMap(page.getContentResource());
         String utilityPagePath = properties.getInherited(pageTypeProperty, String.class);
         if (StringUtils.isBlank(utilityPagePath)) {
@@ -132,13 +159,12 @@ public class SiteNavigation {
             return null;
         }
 
-        PageManager pageManager = page.getPageManager();
-        Page categoryPage = pageManager.getPage(utilityPagePath);
-        if (categoryPage == null) {
+        Page genericPage = pageManager.getPage(utilityPagePath);
+        if (genericPage == null) {
             LOGGER.warn("No page found at {}", utilityPagePath);
             return null;
         }
-        return categoryPage;
+        return genericPage;
     }
 
     /**
